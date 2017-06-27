@@ -103,47 +103,47 @@ export default function syncHistoryWithStore(history, store, {
   }
 
   // The enhanced history uses store as source of truth
-  return {
-    ...history,
-    // The listeners are subscribed to the store instead of history
-    listen(listener) {
-      // Copy of last location.
-      let lastPublishedLocation = getLocationInStore(true)
 
-      // Keep track of whether we unsubscribed, as Redux store
-      // only applies changes in subscriptions on next dispatch
-      let unsubscribed = false
-      const unsubscribeFromStore = store.subscribe(() => {
-        const currentLocation = getLocationInStore(true)
-        if (currentLocation === lastPublishedLocation) {
-          return
-        }
-        lastPublishedLocation = currentLocation
-        if (!unsubscribed) {
-          listener(lastPublishedLocation)
-        }
-      })
+  // The listeners are subscribed to the store instead of history
+  history.listen = function (listener) {
+    // Copy of last location.
+    let lastPublishedLocation = getLocationInStore(true)
 
-      // History 2.x listeners expect a synchronous call. Make the first call to the
-      // listener after subscribing to the store, in case the listener causes a
-      // location change (e.g. when it redirects)
-      if (!history.getCurrentLocation) {
+    // Keep track of whether we unsubscribed, as Redux store
+    // only applies changes in subscriptions on next dispatch
+    let unsubscribed = false
+    const unsubscribeFromStore = store.subscribe(() => {
+      const currentLocation = getLocationInStore(true)
+      if (currentLocation === lastPublishedLocation) {
+        return
+      }
+      lastPublishedLocation = currentLocation
+      if (!unsubscribed) {
         listener(lastPublishedLocation)
       }
+    })
 
-      // Let user unsubscribe later
-      return () => {
-        unsubscribed = true
-        unsubscribeFromStore()
-      }
-    },
-
-    // It also provides a way to destroy internal listeners
-    unsubscribe() {
-      if (adjustUrlOnReplay) {
-        unsubscribeFromStore()
-      }
-      unsubscribeFromHistory()
+    // History 2.x listeners expect a synchronous call. Make the first call to the
+    // listener after subscribing to the store, in case the listener causes a
+    // location change (e.g. when it redirects)
+    if (!history.getCurrentLocation) {
+      listener(lastPublishedLocation)
     }
-  }
+
+    // Let user unsubscribe later
+    return () => {
+      unsubscribed = true
+      unsubscribeFromStore()
+    }
+  };
+
+  // It also provides a way to destroy internal listeners
+  history.unsubscribe = function () {
+    if (adjustUrlOnReplay) {
+      unsubscribeFromStore()
+    }
+    unsubscribeFromHistory()
+  };
+
+  return history;
 }
